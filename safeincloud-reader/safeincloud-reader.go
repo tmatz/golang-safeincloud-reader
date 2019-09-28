@@ -22,38 +22,60 @@ func main() {
     var err error
 
     if len(os.Args) < 2 {
-        fmt.Fprintln(os.Stderr, "wrong number of arguments.")
-        os.Exit(1)
+        fatal("wrong number of arguments.")
     }
 
     filePath := os.Args[1]
 
-    checkExist(filePath)
+    err = checkExist(filePath)
+    check(err)
 
-    f, err := os.Open(filePath); check(err)
+    f, err := os.Open(filePath)
+    check(err)
 
     var password []byte
 
     if len(os.Args) >= 3 {
         password = []byte(os.Args[2])
     } else {
-        password, err = readPassword(); check(err)
+        password, err = readPassword()
+        check(err)
     }
 
     defer f.Close()
 
     buf := bufio.NewReader(f)
 
-    /*magic, _ :=*/ readInt16(buf)
-    /*version, _ :=*/ readByte(buf)
-    salt, _ := readByteArray(buf)
-    iv, _ := readByteArray(buf)
-    secretSalt, _ := readByteArray(buf)
-    secrets, _ := readByteArray(buf)
+    magic, err := readInt16(buf)
+    check(err)
+
+    if magic != 1285 {
+        fatal("not SafeInCloud.db file")
+    }
+
+    version, err := readByte(buf)
+    check(err)
+
+    if version != 1 {
+        fatal("unknown database version")
+    }
+
+    salt, err := readByteArray(buf)
+    check(err)
+
+    iv, err := readByteArray(buf)
+    check(err)
+
+    secretSalt, err := readByteArray(buf)
+    check(err)
+
+    secrets, err := readByteArray(buf)
+    check(err)
 
     key := pbkdf2.Key(password, salt, 10000, 32, sha1.New)
 
     block, err := aes.NewCipher(key)
+    check(err)
 
     mode := cipher.NewCBCDecrypter(block, iv)
 
@@ -61,56 +83,69 @@ func main() {
 
     secretsBuf := bufio.NewReader(bytes.NewReader(secrets))
 
-    secretIv, _ := readByteArray(secretsBuf)
-    secretKey, _ := readByteArray(secretsBuf)
-    checkSum, _ := readByteArray(secretsBuf)
+    secretIv, err := readByteArray(secretsBuf)
+    check(err)
 
-    calculatedCheckSum := pbkdf2.Key(
-	    secretKey, secretSalt, 1000, 32, sha1.New)
+    secretKey, err := readByteArray(secretsBuf)
+    check(err)
+
+    checkSum, err := readByteArray(secretsBuf)
+    check(err)
+
+    calculatedCheckSum := pbkdf2.Key(secretKey, secretSalt, 1000, 32, sha1.New)
 
     if !bytes.Equal(checkSum, calculatedCheckSum) {
-        fmt.Println("wrong password")
-        return
+        fatal("wrong password")
     }
 
     xml, err := ioutil.ReadAll(buf)
+    check(err)
 
     block, err = aes.NewCipher(secretKey)
+    check(err)
 
     mode = cipher.NewCBCDecrypter(block, secretIv)
     mode.CryptBlocks(xml, xml)
 
     r, err := zlib.NewReader(bytes.NewReader(xml))
-    xml, _ = ioutil.ReadAll(r)
-    xml, _ = formatXml(xml)
+    check(err)
+
+    xml, err = ioutil.ReadAll(r)
+    check(err)
+
+    xml, err = formatXml(xml)
+    check(err)
 
     io.Copy(os.Stdout, bytes.NewReader(xml))
     fmt.Println()
 }
 
-func check(err error) {
-    if err == nil {
-        return
-    }
-
-    fmt.Fprintln(os.Stderr, err)
+func fatal(err string) {
+    fmt.Fprintf(os.Stderr, "Error: %s\n", err)
     os.Exit(1)
 }
 
-func checkExist(filePath string) {
+func check(err error) {
+    if err != nil {
+        fatal(err.Error())
+    }
+}
+
+func checkExist(filePath string) error {
     _, err := os.Stat(filePath);
 
     if os.IsNotExist(err) {
-        fmt.Fprintln(os.Stderr, "no such file or directory")
-        os.Exit(1)
+        return fmt.Errorf("no such file or directory")
     }
 
-    check(err)
+    return err
 }
 
 func readPassword() ([]byte, error) {
     fmt.Fprint(os.Stderr, "Password:")
-    return terminal.ReadPassword(int(syscall.Stdin))
+    password, err := terminal.ReadPassword(int(syscall.Stdin))
+    fmt.Fprintln(os.Stderr)
+    return password, err
 }
 
 func formatXml(data []byte) ([]byte, error) {
@@ -137,18 +172,22 @@ func formatXml(data []byte) ([]byte, error) {
 
 func readByte(reader *bufio.Reader) (byte, error) {
     var value byte
-    binary.Read(reader, binary.LittleEndian, &value)
-    return value, nil
+    err := binary.Read(reader, binary.LittleEndian, &value)
+    return value, err
 }
 
 func readInt16(reader *bufio.Reader) (int16, error) {
     var value int16
-    binary.Read(reader, binary.LittleEndian, &value)
-    return value, nil
+    err := binary.Read(reader, binary.LittleEndian, &value)
+    return value, err
 }
 
 func readByteArray(reader *bufio.Reader) ([]byte, error) {
     num, err := reader.ReadByte()
+    if err != nil {
+        return nil, err
+    }
+
     buf := make([]byte, num)
     _, err = io.ReadFull(reader, buf)
     return buf, err
