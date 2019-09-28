@@ -1,19 +1,19 @@
 package main
 
 import (
+    "bufio"
+    "bytes"
+    "compress/zlib"
     "crypto/aes"
     "crypto/cipher"
     "crypto/sha1"
-    "golang.org/x/crypto/pbkdf2"
-    "fmt"
-    "os"
     "encoding/binary"
-    "bufio"
+    "encoding/xml"
+    "fmt"
+    "golang.org/x/crypto/pbkdf2"
     "io"
     "io/ioutil"
-    "compress/zlib"
-    "encoding/xml"
-    "bytes"
+    "os"
 )
 
 func main() {
