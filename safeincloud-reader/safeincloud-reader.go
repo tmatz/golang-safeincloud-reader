@@ -11,24 +11,33 @@ import (
     "encoding/xml"
     "fmt"
     "golang.org/x/crypto/pbkdf2"
+    "golang.org/x/crypto/ssh/terminal"
     "io"
     "io/ioutil"
     "os"
+    "syscall"
 )
 
 func main() {
-    if len(os.Args) != 3 {
-        fmt.Println("wrong number of arguments.")
+    var err error
+
+    if len(os.Args) < 2 {
+        fmt.Fprintln(os.Stderr, "wrong number of arguments.")
         os.Exit(1)
     }
 
     filePath := os.Args[1]
-    password := []byte(os.Args[2])
 
-    f, err := os.Open(filePath)
-    if err != nil {
-        fmt.Println(err)
-        return
+    checkExist(filePath)
+
+    f, err := os.Open(filePath); check(err)
+
+    var password []byte
+
+    if len(os.Args) >= 3 {
+        password = []byte(os.Args[2])
+    } else {
+        password, err = readPassword(); check(err)
     }
 
     defer f.Close()
@@ -77,6 +86,31 @@ func main() {
 
     io.Copy(os.Stdout, bytes.NewReader(xml))
     fmt.Println()
+}
+
+func check(err error) {
+    if err == nil {
+        return
+    }
+
+    fmt.Fprintln(os.Stderr, err)
+    os.Exit(1)
+}
+
+func checkExist(filePath string) {
+    _, err := os.Stat(filePath);
+
+    if os.IsNotExist(err) {
+        fmt.Fprintln(os.Stderr, "no such file or directory")
+        os.Exit(1)
+    }
+
+    check(err)
+}
+
+func readPassword() ([]byte, error) {
+    fmt.Fprint(os.Stderr, "Password:")
+    return terminal.ReadPassword(int(syscall.Stdin))
 }
 
 func formatXml(data []byte) ([]byte, error) {
