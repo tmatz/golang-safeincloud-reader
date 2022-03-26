@@ -6,4 +6,13 @@
 
 safeincloud-reader can dump decrypted xml of SafeInCloud.db file.
 
-    safeincloud-reader filePath password
+## Install
+
+    go install github.com/tmatz/golang-safeincloud-reader/safeincloud-reader@latest
+
+## Usage
+
+    safeincloud-reader <filePath> [password]
+
+* filePath: SafeInCloud.db file path.
+* password: this is optional.
