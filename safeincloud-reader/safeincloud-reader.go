@@ -11,9 +11,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"golang.org/x/crypto/pbkdf2"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"io"
-	"io/ioutil"
 	"os"
 	"syscall"
 )
@@ -98,7 +97,7 @@ func main() {
 		fatal("wrong password")
 	}
 
-	xml, err := ioutil.ReadAll(buf)
+	xml, err := io.ReadAll(buf)
 	check(err)
 
 	block, err = aes.NewCipher(secretKey)
@@ -110,7 +109,7 @@ func main() {
 	r, err := zlib.NewReader(bytes.NewReader(xml))
 	check(err)
 
-	xml, err = ioutil.ReadAll(r)
+	xml, err = io.ReadAll(r)
 	check(err)
 
 	xml, err = formatXml(xml)
@@ -143,7 +142,7 @@ func checkExist(filePath string) error {
 
 func readPassword() ([]byte, error) {
 	fmt.Fprint(os.Stderr, "Password:")
-	password, err := terminal.ReadPassword(int(syscall.Stdin))
+	password, err := term.ReadPassword(int(syscall.Stdin))
 	fmt.Fprintln(os.Stderr)
 	return password, err
 }
